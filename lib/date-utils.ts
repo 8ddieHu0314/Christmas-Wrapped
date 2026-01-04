@@ -10,7 +10,7 @@ export const UNLOCK_DATES = {
   9: '2023-12-24',
 };
 
-export function isDateUnlocked(day: number, "testMode": boolean = false): boolean {
+export function isDateUnlocked(day: number, testMode: boolean = false): boolean {
   if (testMode) return true;
   
   const unlockDateStr = UNLOCK_DATES[day as keyof typeof UNLOCK_DATES];

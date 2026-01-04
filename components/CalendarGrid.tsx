@@ -17,7 +17,7 @@ export default function CalendarGrid({ revealedDays, onReveal, testMode }: Calen
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadingDay, setLoadingDay] = useState<number | null>(null);
 
-  const handleBoxClick = async (day: number, "isUnlocked": boolean, "isRevealed": boolean) => {
+  const handleBoxClick = async (day: number, isUnlocked: boolean, isRevealed: boolean) => {
     if (!isUnlocked) return;
 
     if (isRevealed) {

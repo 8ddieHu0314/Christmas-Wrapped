@@ -1,10 +1,9 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
     const { calendarOwnerId, votes, personalNote } = await request.json();
     
     // Get IP address
@@ -12,7 +11,7 @@ export async function POST(request: Request) {
 
     // Check for duplicate votes from this IP for this calendar
     // We check if there are any votes from this IP for this owner
-    const { "data": existingVotes } = await supabase
+    const { data: existingVotes } = await supabase
       .from('votes')
       .select('id')
       .eq('calendar_owner_id', calendarOwnerId)
@@ -20,7 +19,7 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (existingVotes && existingVotes.length > 0) {
-      return NextResponse.json({ "error": 'You have already voted for this calendar!' }, { "status": 400 });
+      return NextResponse.json({ error: 'You have already voted for this calendar!' }, { status: 400 });
     }
 
     const votesToInsert = [];
@@ -38,7 +37,7 @@ export async function POST(request: Request) {
     // Process personal note (Category 9)
     if (personalNote && personalNote.trim()) {
       // Find category ID for personal_note
-      const { "data": noteCat } = await supabase
+      const { data: noteCat } = await supabase
         .from('categories')
         .select('id')
         .eq('code', 'personal_note')
@@ -56,19 +55,19 @@ export async function POST(request: Request) {
     }
 
     if (votesToInsert.length === 0) {
-      return NextResponse.json({ "error": 'No votes to submit' }, { "status": 400 });
+      return NextResponse.json({ error: 'No votes to submit' }, { status: 400 });
     }
 
     const { error } = await supabase.from('votes').insert(votesToInsert);
 
     if (error) {
       console.error('Vote insert error:', error);
-      return NextResponse.json({ "error": 'Failed to save votes' }, { "status": 500 });
+      return NextResponse.json({ error: 'Failed to save votes' }, { status: 500 });
     }
 
-    return NextResponse.json({ "success": true });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Submit vote error:', error);
-    return NextResponse.json({ "error": 'Internal server error' }, { "status": 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

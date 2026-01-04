@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase';
 import { useRouter, usePathname } from 'next/navigation';
 
 export default function Navbar() {
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   const router = useRouter();
   const pathname = usePathname();
 

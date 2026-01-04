@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -11,20 +11,20 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [voteStats, setVoteStats] = useState<any[]>([]);
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   const router = useRouter();
   
   useEffect(() => {
     async function loadData() {
       // Get authenticated user
-      const { "data": { "user": authUser } } = await supabase.auth.getUser();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) {
         router.push('/');
         return;
       }
       
       // Fetch user data including calendar_code
-      const { "data": userData, "error": userError } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', authUser.id)
@@ -45,14 +45,14 @@ export default function Dashboard() {
   }, []);
   
   async function fetchVoteStats(userId: string) {
-    const { "data": votes } = await supabase
+    const { data: votes } = await supabase
       .from('votes')
       .select('category_id, categories(name)')
       .eq('calendar_owner_id', userId);
     
     if (votes) {
       // Group by category and count
-      const stats = votes.reduce((acc: any, "vote": any) => {
+      const stats = votes.reduce((acc: any, vote: any) => {
         const categoryName = vote.categories?.name || 'Unknown';
         acc[categoryName] = (acc[categoryName] || 0) + 1;
         return acc;
@@ -90,7 +90,7 @@ export default function Dashboard() {
         alert('🎄 ' + data.message);
         
         // Refresh vote stats
-        const { "data": { "user": authUser } } = await supabase.auth.getUser();
+        const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
           await fetchVoteStats(authUser.id);
         }

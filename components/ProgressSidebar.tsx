@@ -2,7 +2,7 @@
 
 import { getDaysUntilChristmas } from '@/lib/date-utils';
 
-export default function ProgressSidebar({ revealedCount, totalDays }: { "revealedCount": number, "totalDays": number }) {
+export default function ProgressSidebar({ revealedCount, totalDays }: { revealedCount: number, totalDays: number }) {
   const daysUntilXmas = getDaysUntilChristmas();
   const progress = Math.round((revealedCount / totalDays) * 100);
 

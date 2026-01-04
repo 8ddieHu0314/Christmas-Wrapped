@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase';
 import { motion } from 'framer-motion';
 
-export default function VotePage({ params }: { "params": { "code": string } }) {
+export default function VotePage({ params }: { params: { code: string } }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [calendarOwner, setCalendarOwner] = useState<any>(null);
@@ -13,13 +13,13 @@ export default function VotePage({ params }: { "params": { "code": string } }) {
   const [personalNote, setPersonalNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
 
   useEffect(() => {
     async function loadData() {
       try {
         // Fetch user by code
-        const { "data": owner, "error": ownerError } = await supabase
+        const { data: owner, error: ownerError } = await supabase
           .from('users')
           .select('id, name, voting_enabled')
           .eq('calendar_code', params.code)
@@ -34,7 +34,7 @@ export default function VotePage({ params }: { "params": { "code": string } }) {
         setCalendarOwner(owner);
 
         // Fetch categories and options
-        const { "data": cats, "error": catsError } = await supabase
+        const { data: cats, error: catsError } = await supabase
           .from('categories')
           .select(`
             *,
@@ -47,7 +47,7 @@ export default function VotePage({ params }: { "params": { "code": string } }) {
         // Sort options by display_order
         const sortedCats = cats.map(cat => ({
           ...cat,
-          options: cat.options.sort((a: any, "b": any) => a.display_order - b.display_order)
+          options: cat.options.sort((a: any, b: any) => a.display_order - b.display_order)
         }));
 
         setCategories(sortedCats);
@@ -61,7 +61,7 @@ export default function VotePage({ params }: { "params": { "code": string } }) {
     loadData();
   }, [params.code]);
 
-  const handleOptionSelect = (categoryId: number, "optionId": number) => {
+  const handleOptionSelect = (categoryId: number, optionId: number) => {
     setVotes(prev => ({
       ...prev,
       [categoryId]: optionId

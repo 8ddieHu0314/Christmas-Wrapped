@@ -1,27 +1,26 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { isDateUnlocked } from '@/lib/date-utils';
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
     const { day, testMode } = await request.json();
     
-    const { "data": { user }, "error": authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json({ "error": 'Unauthorized' }, { "status": 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Verify date unlock
     if (!isDateUnlocked(day, testMode)) {
-      return NextResponse.json({ "error": 'This day is still locked!' }, { "status": 403 });
+      return NextResponse.json({ error: 'This day is still locked!' }, { status: 403 });
     }
 
     // Record reveal
     await supabase
       .from('reveals')
-      .insert({ "user_id": user.id, "category_id": day })
+      .insert({ user_id: user.id, category_id: day })
       .select()
       .maybeSingle(); // Ignore if already exists due to unique constraint
 
@@ -31,7 +30,7 @@ export async function POST(request: Request) {
 
     // Special case for Day 9 (Personal Notes)
     if (day === 9) {
-      const { "data": notes } = await supabase
+      const { data: notes } = await supabase
         .from('votes')
         .select('personal_note')
         .eq('calendar_owner_id', user.id)
@@ -46,7 +45,7 @@ export async function POST(request: Request) {
     }
 
     // Standard categories: Calculate winner
-    const { "data": votes } = await supabase
+    const { data: votes } = await supabase
       .from('votes')
       .select('option_id')
       .eq('calendar_owner_id', user.id)
@@ -79,7 +78,7 @@ export async function POST(request: Request) {
       .map(id => parseInt(id));
 
     // Fetch option details
-    const { "data": winningOptions } = await supabase
+    const { data: winningOptions } = await supabase
       .from('options')
       .select('*')
       .in('id', winningOptionIds);
@@ -95,6 +94,6 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('Reveal error:', error);
-    return NextResponse.json({ "error": 'Internal server error' }, { "status": 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

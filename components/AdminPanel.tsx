@@ -1,16 +1,16 @@
 'use client';
 
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
 export default function AdminPanel() {
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   const router = useRouter();
 
   const resetReveals = async () => {
     if (!confirm('Are you sure? This will lock all days again.')) return;
     
-    const { "data": { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase.from('reveals').delete().eq('user_id', user.id);
       window.location.reload();

@@ -9,7 +9,7 @@ interface DayBoxProps {
   isRevealed: boolean;
   isLoading: boolean;
   testMode: boolean;
-  onClick: (isUnlocked: boolean, "isRevealed": boolean) => void;
+  onClick: (isUnlocked: boolean, isRevealed: boolean) => void;
 }
 
 export default function DayBox({ day, isRevealed, isLoading, testMode, onClick }: DayBoxProps) {

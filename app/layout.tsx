@@ -4,7 +4,7 @@ import { Inter, Mountains_of_Christmas } from 'next/font/google'
 import Snowfall from '@/components/Snowfall'
 import Navbar from '@/components/Navbar'
 
-const inter = Inter({ "subsets": ['latin'], "variable": '--font-inter' })
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const christmas = Mountains_of_Christmas({ 
   weight: ['400', '700'], 
   subsets: ['latin'],

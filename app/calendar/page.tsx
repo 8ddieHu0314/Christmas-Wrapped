@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import CalendarGrid from '@/components/CalendarGrid';
 import ProgressSidebar from '@/components/ProgressSidebar';
@@ -12,14 +12,14 @@ export default function CalendarPage() {
   const [user, setUser] = useState<any>(null);
   const [reveals, setReveals] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const testMode = searchParams.get('testMode') === 'true';
 
   useEffect(() => {
     async function loadData() {
-      const { "data": { "user": authUser } } = await supabase.auth.getUser();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) {
         router.push('/');
         return;
@@ -27,7 +27,7 @@ export default function CalendarPage() {
       setUser(authUser);
 
       // Fetch reveals
-      const { "data": revealsData } = await supabase
+      const { data: revealsData } = await supabase
         .from('reveals')
         .select('category_id')
         .eq('user_id', authUser.id);

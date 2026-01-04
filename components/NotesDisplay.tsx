@@ -1,4 +1,4 @@
-export default function NotesDisplay({ notes }: { "notes": string[] }) {
+export default function NotesDisplay({ notes }: { notes: string[] }) {
   if (!notes || notes.length === 0) {
     return <p className="text-center text-gray-500 italic">No messages were left for you.</p>;
   }
