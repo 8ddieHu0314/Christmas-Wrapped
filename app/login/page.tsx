@@ -1,44 +1,62 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { createClient } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { LogIn } from 'lucide-react';
 
-export default function Login() {
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  const redirectTo = searchParams.get('redirect') || '/dashboard';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-    } else {
-      router.push('/dashboard');
+      if (error) throw error;
+      
+      router.push(redirectTo);
       router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border-t-4 border-christmas-green">
-        <h2 className="text-3xl font-christmas font-bold text-center mb-6 text-christmas-red">Welcome Back! 🎅</h2>
-        
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border-4 border-christmas-green"
+      >
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-christmas-green/10 rounded-full mb-4">
+            <LogIn size={32} className="text-christmas-green" />
+          </div>
+          <h1 className="text-3xl font-christmas font-bold text-christmas-green mb-2">Welcome Back!</h1>
+          <p className="text-gray-600">Sign in to continue</p>
+        </div>
+
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
             {error}
           </div>
         )}
@@ -50,7 +68,7 @@ export default function Login() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-christmas-green focus:ring focus:ring-christmas-green focus:ring-opacity-50 p-2 border"
+              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-christmas-green focus:outline-none focus:ring-1 focus:ring-christmas-green"
               required
             />
           </div>
@@ -60,28 +78,40 @@ export default function Login() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-christmas-green focus:ring focus:ring-christmas-green focus:ring-opacity-50 p-2 border"
+              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-christmas-green focus:outline-none focus:ring-1 focus:ring-christmas-green"
               required
             />
           </div>
+          
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-christmas-green text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors disabled:opacity-50"
+            className="w-full bg-christmas-green text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-bold disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
         
-        <div className="mt-4 text-center">
-          <p className="text-sm text-gray-600">
+        <div className="mt-6 text-center">
+          <p className="text-gray-600">
             Don't have an account?{' '}
-            <Link href="/signup" className="text-christmas-red hover:underline font-medium">
+            <Link 
+              href={`/signup${redirectTo !== '/dashboard' ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`} 
+              className="text-christmas-red hover:underline font-bold"
+            >
               Sign up
             </Link>
           </p>
         </div>
-      </div>
+      </motion.div>
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

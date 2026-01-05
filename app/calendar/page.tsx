@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import CalendarGrid from '@/components/CalendarGrid';
 import ProgressSidebar from '@/components/ProgressSidebar';
 import AdminPanel from '@/components/AdminPanel';
-import { isDateUnlocked } from '@/lib/date-utils';
 
-export default function CalendarPage() {
+function CalendarPageContent() {
   const [user, setUser] = useState<any>(null);
   const [reveals, setReveals] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,5 +68,13 @@ export default function CalendarPage() {
         {testMode && <AdminPanel />}
       </div>
     </div>
+  );
+}
+
+export default function CalendarPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <CalendarPageContent />
+    </Suspense>
   );
 }

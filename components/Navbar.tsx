@@ -15,7 +15,7 @@ export default function Navbar() {
     router.refresh();
   };
 
-  if (pathname === '/' || pathname === '/signup' || pathname.startsWith('/vote')) return null;
+  if (pathname === '/' || pathname === '/signup' || pathname === '/login' || pathname.startsWith('/vote')) return null;
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200 px-4 py-3 flex justify-between items-center relative z-20">
