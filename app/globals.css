@@ -3,15 +3,102 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  /* Dark forest green theme */
+  --background: 152 32% 12%;
+  --foreground: 45 29% 90%;
+  
+  /* Card colors */
+  --card: 152 28% 18%;
+  --card-foreground: 45 29% 90%;
+  
+  /* Primary - Gold/Yellow accent */
+  --primary: 45 93% 58%;
+  --primary-foreground: 152 32% 12%;
+  
+  /* Muted */
+  --muted: 152 20% 25%;
+  --muted-foreground: 45 10% 65%;
+  
+  /* Border */
+  --border: 45 30% 35%;
+  
+  /* Input */
+  --input: 152 25% 22%;
+  
+  /* Ring */
+  --ring: 45 93% 58%;
+  
+  /* Sparkle color */
+  --sparkle: 45 80% 70%;
+}
+
+* {
+  border-color: hsl(var(--border));
 }
 
 body {
-  background: linear-gradient(to bottom, #f0f9ff, #e0f2fe);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
 }
 
+/* Utility classes */
 .font-christmas {
   font-family: var(--font-christmas), cursive;
+}
+
+.font-display {
+  font-family: var(--font-christmas), cursive;
+}
+
+.text-shadow-glow {
+  text-shadow: 0 0 20px hsla(var(--primary), 0.5), 0 0 40px hsla(var(--primary), 0.3);
+}
+
+/* Sparkle background gradient */
+.sparkle-bg {
+  background: radial-gradient(ellipse at top, hsl(152 32% 16%) 0%, hsl(var(--background)) 50%),
+              radial-gradient(ellipse at bottom, hsl(152 28% 14%) 0%, hsl(var(--background)) 50%);
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(3deg);
+  }
+}
+
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-sparkle {
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+.text-sparkle {
+  color: hsl(var(--sparkle));
+}
+
+/* Form input styling */
+input::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring));
 }

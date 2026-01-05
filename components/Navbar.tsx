@@ -11,11 +11,11 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push('/');
+    router.push('/auth');
     router.refresh();
   };
 
-  if (pathname === '/' || pathname === '/signup' || pathname === '/login' || pathname.startsWith('/vote')) return null;
+  if (pathname === '/' || pathname === '/auth' || pathname.startsWith('/vote')) return null;
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200 px-4 py-3 flex justify-between items-center relative z-20">

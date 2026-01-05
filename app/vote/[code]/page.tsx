@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Send, LogIn, UserPlus } from 'lucide-react';
+import { Send, LogIn } from 'lucide-react';
 
 interface Category {
   id: number;
@@ -235,19 +235,11 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
 
             <div className="space-y-4">
               <Link
-                href={`/signup?redirect=/vote/${calendarCode}${inviteToken ? `?invite=${inviteToken}` : ''}`}
+                href={`/auth?redirect=/vote/${calendarCode}${inviteToken ? `?invite=${inviteToken}` : ''}`}
                 className="w-full bg-christmas-red text-white py-3 px-4 rounded-lg font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
               >
-                <UserPlus size={20} />
-                Create Account
-              </Link>
-              
-              <Link
-                href={`/login?redirect=/vote/${calendarCode}${inviteToken ? `?invite=${inviteToken}` : ''}`}
-                className="w-full bg-white text-christmas-green border-2 border-christmas-green py-3 px-4 rounded-lg font-bold hover:bg-green-50 transition-colors flex items-center justify-center gap-2"
-              >
                 <LogIn size={20} />
-                Log In
+                Sign In to Vote
               </Link>
             </div>
           </motion.div>
