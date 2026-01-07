@@ -11,7 +11,7 @@ const christmas = Mountains_of_Christmas({
 })
 
 export const metadata: Metadata = {
-  title: 'Friend Gifts - Advent Calendar',
+  title: 'Christmas Wrapped',
   description: 'Discover what your friends think of you with a festive advent calendar!',
 }
 
