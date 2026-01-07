@@ -161,10 +161,13 @@ CREATE POLICY "Calendar owners can view their answers" ON category_answers FOR S
 CREATE POLICY "Voters can view answers they voted for" ON category_answers FOR SELECT USING (
   EXISTS (SELECT 1 FROM votes WHERE votes.answer_id = category_answers.id AND votes.voter_id = auth.uid())
 );
+CREATE POLICY "Authenticated users can insert answers" ON category_answers FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Authenticated users can update vote counts" ON category_answers FOR UPDATE USING (auth.uid() IS NOT NULL);
 
 -- Votes policies
 CREATE POLICY "Calendar owners can view votes" ON votes FOR SELECT USING (auth.uid() = calendar_owner_id);
 CREATE POLICY "Voters can view their own votes" ON votes FOR SELECT USING (auth.uid() = voter_id);
+CREATE POLICY "Authenticated users can insert votes" ON votes FOR INSERT WITH CHECK (auth.uid() = voter_id);
 
 -- Reveals policies
 CREATE POLICY "Users can manage own reveals" ON reveals FOR ALL USING (auth.uid() = user_id);

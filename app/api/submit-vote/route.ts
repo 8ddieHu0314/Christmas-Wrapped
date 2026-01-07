@@ -1,11 +1,13 @@
-import { createClient } from '@/lib/supabase-server';
+import { createClient, createAdminClient } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { isVotingOpen } from '@/lib/date-utils';
 import { normalizeAnswer } from '@/lib/utils';
 
 export async function POST(request: Request) {
   try {
+    // Use regular client for auth, admin client for database operations
     const supabase = await createClient();
+    const supabaseAdmin = createAdminClient();
     const { calendarOwnerId, answers } = await request.json();
 
     // Check if voting deadline has passed (same for everyone - Dec 15)
@@ -13,7 +15,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Voting deadline has passed (Dec 15)' }, { status: 400 });
     }
 
-    // Authenticate user
+    // Authenticate user (validates JWT from cookies)
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Please log in to vote' }, { status: 401 });
@@ -24,8 +26,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'You cannot vote on your own calendar' }, { status: 400 });
     }
 
-    // Verify calendar owner exists
-    const { data: calendarOwner, error: ownerError } = await supabase
+    // Verify calendar owner exists (use admin client for DB operations)
+    const { data: calendarOwner, error: ownerError } = await supabaseAdmin
       .from('users')
       .select('id')
       .eq('id', calendarOwnerId)
@@ -41,13 +43,13 @@ export async function POST(request: Request) {
     }
 
     // Fetch all categories to validate
-    const { data: categories } = await supabase
+    const { data: categories } = await supabaseAdmin
       .from('categories')
       .select('id');
 
     const validCategoryIds = new Set(categories?.map(c => c.id) || []);
 
-    // Submit each vote using the database function
+    // Submit each vote using admin client
     const results = [];
     const errors = [];
 
@@ -65,7 +67,7 @@ export async function POST(request: Request) {
       }
 
       // Check if user already voted for this category
-      const { data: existingVote } = await supabase
+      const { data: existingVote } = await supabaseAdmin
         .from('votes')
         .select('id')
         .eq('calendar_owner_id', calendarOwnerId)
@@ -79,7 +81,7 @@ export async function POST(request: Request) {
       }
 
       // Check if this answer already exists
-      const { data: existingAnswer } = await supabase
+      const { data: existingAnswer } = await supabaseAdmin
         .from('category_answers')
         .select('id, vote_count')
         .eq('calendar_owner_id', calendarOwnerId)
@@ -91,7 +93,7 @@ export async function POST(request: Request) {
 
       if (existingAnswer) {
         // Answer exists - increment vote count
-        await supabase
+        await supabaseAdmin
           .from('category_answers')
           .update({ 
             vote_count: existingAnswer.vote_count + 1,
@@ -102,7 +104,7 @@ export async function POST(request: Request) {
         answerId = existingAnswer.id;
       } else {
         // New answer - create with vote_count = 1
-        const { data: newAnswer, error: insertError } = await supabase
+        const { data: newAnswer, error: insertError } = await supabaseAdmin
           .from('category_answers')
           .insert({
             calendar_owner_id: calendarOwnerId,
@@ -114,14 +116,15 @@ export async function POST(request: Request) {
           .single();
 
         if (insertError || !newAnswer) {
-          errors.push({ category: catId, error: 'Failed to save answer' });
+          console.error(`Insert answer error for category ${catId}:`, insertError);
+          errors.push({ category: catId, error: insertError?.message || 'Failed to save answer' });
           continue;
         }
         answerId = newAnswer.id;
       }
 
       // Record the vote
-      const { error: voteError } = await supabase
+      const { error: voteError } = await supabaseAdmin
         .from('votes')
         .insert({
           calendar_owner_id: calendarOwnerId,
@@ -145,14 +148,14 @@ export async function POST(request: Request) {
     }
 
     // Update invitation status to 'voted'
-    const { data: userData } = await supabase
+    const { data: userData } = await supabaseAdmin
       .from('users')
       .select('email')
       .eq('id', user.id)
       .single();
 
     if (userData?.email) {
-      await supabase
+      await supabaseAdmin
         .from('invitations')
         .update({ status: 'voted', accepted_by: user.id })
         .eq('email', userData.email)
