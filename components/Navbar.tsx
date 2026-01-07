@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 import { useRouter, usePathname } from 'next/navigation';
-import { Gift, Users, LogOut } from 'lucide-react';
+import { Gift, Users, LogOut, Vote } from 'lucide-react';
 
 export default function Navbar() {
   const [userName, setUserName] = useState<string | null>(null);
+  const [pendingInvites, setPendingInvites] = useState(0);
   const supabase = createClient();
   const router = useRouter();
   const pathname = usePathname();
@@ -24,10 +25,21 @@ export default function Navbar() {
           // Fetch from users table
           const { data: userData } = await supabase
             .from('users')
-            .select('name')
+            .select('name, email')
             .eq('id', user.id)
             .single();
           setUserName(userData?.name || user.email?.split('@')[0] || 'Friend');
+
+          // Count pending invitations
+          if (userData?.email) {
+            const { count } = await supabase
+              .from('invitations')
+              .select('*', { count: 'exact', head: true })
+              .eq('email', userData.email)
+              .in('status', ['pending', 'accepted']);
+            
+            setPendingInvites(count || 0);
+          }
         }
       }
     }
@@ -40,8 +52,10 @@ export default function Navbar() {
     router.refresh();
   };
 
-  // Hide navbar on public pages
-  if (pathname === '/' || pathname === '/auth' || pathname.startsWith('/vote')) return null;
+  // Hide navbar on auth page and vote form page (but show on /vote list)
+  if (pathname === '/' || pathname === '/auth' || (pathname.startsWith('/vote/') && pathname !== '/vote')) {
+    return null;
+  }
 
   return (
     <nav className="bg-card/80 backdrop-blur-sm border-b border-primary/20 px-4 py-3 flex justify-between items-center relative z-20">
@@ -75,6 +89,23 @@ export default function Navbar() {
         >
           <Users className="w-4 h-4" />
           <span>Invite Friends</span>
+        </Link>
+
+        <Link 
+          href="/vote" 
+          className={`flex items-center gap-2 font-medium transition-colors relative ${
+            pathname === '/vote' 
+              ? 'text-primary' 
+              : 'text-foreground/70 hover:text-primary'
+          }`}
+        >
+          <Vote className="w-4 h-4" />
+          <span>Vote</span>
+          {pendingInvites > 0 && (
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+              {pendingInvites}
+            </span>
+          )}
         </Link>
 
         {/* User greeting and logout */}

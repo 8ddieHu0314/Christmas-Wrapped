@@ -2,10 +2,12 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { createClient } from '@/lib/supabase';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Send, LogIn } from 'lucide-react';
+import { Send, LogIn, ArrowLeft } from 'lucide-react';
+import { Sparkles } from '@/components/Sparkles';
+import { isVotingOpen } from '@/lib/date-utils';
 
 interface Category {
   id: number;
@@ -26,22 +28,49 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [hasAlreadyVoted, setHasAlreadyVoted] = useState(false);
+  const [hasInvitation, setHasInvitation] = useState(false);
   const supabase = createClient();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const inviteToken = searchParams.get('invite');
 
   useEffect(() => {
     async function loadData() {
       try {
+        // Check if voting is still open
+        if (!isVotingOpen()) {
+          setError('Voting has closed (deadline was Dec 15)');
+          setLoading(false);
+          return;
+        }
+
         // Check if user is authenticated
         const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (!authUser) {
+          setCurrentUser(null);
+          // Still load calendar owner for display
+          const { data: owner } = await supabase
+            .from('users')
+            .select('id, name')
+            .eq('calendar_code', calendarCode)
+            .single();
+          setCalendarOwner(owner);
+          setLoading(false);
+          return;
+        }
+        
         setCurrentUser(authUser);
+
+        // Get current user's email
+        const { data: currentUserData } = await supabase
+          .from('users')
+          .select('email')
+          .eq('id', authUser.id)
+          .single();
 
         // Fetch calendar owner by code
         const { data: owner, error: ownerError } = await supabase
           .from('users')
-          .select('id, name, voting_enabled')
+          .select('id, name, email, calendar_code')
           .eq('calendar_code', calendarCode)
           .single();
 
@@ -52,7 +81,7 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
         }
 
         // Prevent self-voting
-        if (authUser && authUser.id === owner.id) {
+        if (authUser.id === owner.id) {
           setError('You cannot vote on your own calendar!');
           setLoading(false);
           return;
@@ -60,20 +89,44 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
 
         setCalendarOwner(owner);
 
-        // Check if already voted (if logged in)
-        if (authUser) {
-          const { data: existingVotes } = await supabase
-            .from('votes')
-            .select('id')
-            .eq('calendar_owner_id', owner.id)
-            .eq('voter_id', authUser.id)
-            .limit(1);
+        // Check if user has an invitation for this calendar
+        if (currentUserData?.email) {
+          const { data: invitation } = await supabase
+            .from('invitations')
+            .select('id, status')
+            .eq('email', currentUserData.email)
+            .eq('sender_id', owner.id)
+            .single();
 
-          if (existingVotes && existingVotes.length > 0) {
-            setHasAlreadyVoted(true);
+          if (invitation) {
+            setHasInvitation(true);
+            
+            // Check if already voted
+            if (invitation.status === 'voted') {
+              setHasAlreadyVoted(true);
+              setLoading(false);
+              return;
+            }
+          } else {
+            // No invitation - user cannot vote
+            setError('You need an invitation to vote on this calendar');
             setLoading(false);
             return;
           }
+        }
+
+        // Also check votes table directly
+        const { data: existingVotes } = await supabase
+          .from('votes')
+          .select('id')
+          .eq('calendar_owner_id', owner.id)
+          .eq('voter_id', authUser.id)
+          .limit(1);
+
+        if (existingVotes && existingVotes.length > 0) {
+          setHasAlreadyVoted(true);
+          setLoading(false);
+          return;
         }
 
         // Fetch categories
@@ -98,12 +151,11 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
   const handleAnswerChange = (categoryId: number, value: string) => {
     setAnswers(prev => ({
       ...prev,
-      [categoryId]: value.substring(0, 500) // Max 500 chars
+      [categoryId]: value.substring(0, 500)
     }));
   };
 
   const handleSubmit = async () => {
-    // Validate that all categories have answers
     const missingAnswers = categories.filter(c => !answers[c.id]?.trim());
     
     if (missingAnswers.length > 0) {
@@ -115,13 +167,10 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
     try {
       const response = await fetch('/api/submit-vote', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           calendarOwnerId: calendarOwner.id,
           answers,
-          inviteToken,
         }),
       });
 
@@ -142,24 +191,32 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-xl text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center sparkle-bg">
+        <div className="text-2xl animate-pulse text-primary">Loading... 🎁</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-8 bg-slate-50">
-        <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Oops!</h1>
-          <p className="text-gray-600">{error}</p>
-          <Link 
-            href="/"
-            className="inline-block mt-6 bg-christmas-green text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700"
+      <div className="min-h-screen flex flex-col sparkle-bg">
+        <Sparkles />
+        <div className="flex-1 flex items-center justify-center p-8">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-card/90 backdrop-blur-sm p-8 rounded-xl border border-red-500/30 text-center max-w-md"
           >
-            Go Home
-          </Link>
+            <h1 className="text-2xl font-bold text-red-400 mb-4">Oops!</h1>
+            <p className="text-foreground/80 mb-6">{error}</p>
+            <Link 
+              href="/vote"
+              className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2 rounded-lg font-bold hover:bg-primary/90"
+            >
+              <ArrowLeft size={18} />
+              Back to Invitations
+            </Link>
+          </motion.div>
         </div>
       </div>
     );
@@ -167,152 +224,172 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
 
   if (hasAlreadyVoted) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-green-50 to-white">
-        <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-white p-10 rounded-2xl shadow-xl border-4 border-christmas-green max-w-md"
-        >
-          <h1 className="text-3xl font-christmas font-bold text-christmas-green mb-4">
-            You've Already Voted! 🎄
-          </h1>
-          <p className="text-xl text-gray-700">
-            Thanks for voting on {calendarOwner.name}'s calendar.
-          </p>
-          <p className="text-gray-500 mt-4">
-            Your answers have been saved.
-          </p>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-red-50 to-white">
-        <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-white p-10 rounded-2xl shadow-xl border-4 border-christmas-green max-w-md"
-        >
-          <h1 className="text-4xl font-christmas font-bold text-christmas-red mb-4">
-            Thank you for voting! 🎅
-          </h1>
-          <p className="text-xl text-gray-700">
-            Your answers have been sent to {calendarOwner.name}.
-          </p>
-          <p className="text-gray-500 mt-4">
-            They'll reveal your answers during their advent countdown!
-          </p>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // If not logged in, show auth prompt
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-red-50 to-white">
-        <div className="bg-christmas-red text-white py-8 px-4 text-center shadow-lg">
-          <h1 className="text-3xl md:text-4xl font-christmas font-bold">
-            Vote for {calendarOwner?.name}'s Calendar
-          </h1>
-          <p className="mt-2 opacity-90">Help build their Advent Calendar!</p>
-        </div>
-
-        <div className="max-w-md mx-auto p-6 mt-12">
+      <div className="min-h-screen flex flex-col sparkle-bg">
+        <Sparkles />
+        <div className="flex-1 flex items-center justify-center p-8">
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white p-8 rounded-2xl shadow-xl border-2 border-gray-100"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-card/90 backdrop-blur-sm p-10 rounded-2xl border-2 border-green-500/30 max-w-md text-center"
           >
-            <h2 className="text-2xl font-bold text-gray-800 mb-4 text-center">
-              Sign in to Vote
-            </h2>
-            <p className="text-gray-600 mb-6 text-center">
-              Create an account or log in to submit your votes for {calendarOwner?.name}.
+            <h1 className="text-3xl font-display font-bold text-green-400 mb-4">
+              You've Already Voted! 🎄
+            </h1>
+            <p className="text-xl text-foreground/80">
+              Thanks for voting on {calendarOwner?.name}'s calendar.
             </p>
-
-            <div className="space-y-4">
-              <Link
-                href={`/auth?redirect=/vote/${calendarCode}${inviteToken ? `?invite=${inviteToken}` : ''}`}
-                className="w-full bg-christmas-red text-white py-3 px-4 rounded-lg font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <LogIn size={20} />
-                Sign In to Vote
-              </Link>
-            </div>
+            <p className="text-muted-foreground mt-4">
+              Your answers have been saved.
+            </p>
+            <Link 
+              href="/vote"
+              className="inline-flex items-center gap-2 mt-6 text-primary hover:text-primary/80"
+            >
+              <ArrowLeft size={18} />
+              Back to Invitations
+            </Link>
           </motion.div>
         </div>
       </div>
     );
   }
 
-  if (!calendarOwner.voting_enabled) {
+  if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-8 bg-slate-50">
-        <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">
-          <h1 className="text-2xl font-bold mb-2">Voting has ended</h1>
-          <p className="text-gray-600">Sorry, this calendar is no longer accepting votes.</p>
+      <div className="min-h-screen flex flex-col sparkle-bg">
+        <Sparkles />
+        <div className="flex-1 flex items-center justify-center p-8">
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-card/90 backdrop-blur-sm p-10 rounded-2xl border-2 border-primary/30 max-w-md text-center"
+          >
+            <h1 className="text-4xl font-display font-bold text-primary mb-4">
+              Thank you! 🎅
+            </h1>
+            <p className="text-xl text-foreground/80">
+              Your votes have been sent to {calendarOwner?.name}.
+            </p>
+            <p className="text-muted-foreground mt-4">
+              They'll reveal your answers during their advent countdown!
+            </p>
+            <Link 
+              href="/vote"
+              className="inline-flex items-center gap-2 mt-6 bg-primary text-primary-foreground px-6 py-2 rounded-lg font-bold hover:bg-primary/90"
+            >
+              <ArrowLeft size={18} />
+              Back to Invitations
+            </Link>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // Not logged in
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex flex-col sparkle-bg">
+        <Sparkles />
+        <div className="bg-primary/90 text-primary-foreground py-8 px-4 text-center">
+          <h1 className="text-3xl md:text-4xl font-display font-bold">
+            Vote for {calendarOwner?.name}'s Calendar
+          </h1>
+          <p className="mt-2 opacity-90">Help build their Gift Calendar!</p>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-card/90 backdrop-blur-sm p-8 rounded-2xl border border-primary/30 max-w-md w-full"
+          >
+            <h2 className="text-2xl font-bold text-foreground mb-4 text-center">
+              Sign in to Vote
+            </h2>
+            <p className="text-muted-foreground mb-6 text-center">
+              Create an account or log in to submit your votes for {calendarOwner?.name}.
+            </p>
+
+            <Link
+              href={`/auth?redirect=/vote/${calendarCode}`}
+              className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+            >
+              <LogIn size={20} />
+              Sign In to Vote
+            </Link>
+          </motion.div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-24">
-      <div className="bg-christmas-red text-white py-8 px-4 text-center shadow-lg">
-        <h1 className="text-3xl md:text-5xl font-christmas font-bold">
-          Vote for {calendarOwner.name}
+    <div className="min-h-screen flex flex-col sparkle-bg">
+      <Sparkles />
+      
+      {/* Header */}
+      <div className="bg-primary/90 text-primary-foreground py-8 px-4 text-center">
+        <Link 
+          href="/vote"
+          className="inline-flex items-center gap-2 text-primary-foreground/80 hover:text-primary-foreground mb-4 text-sm"
+        >
+          <ArrowLeft size={16} />
+          Back to Invitations
+        </Link>
+        <h1 className="text-3xl md:text-4xl font-display font-bold">
+          Vote for {calendarOwner?.name}
         </h1>
         <p className="mt-2 opacity-90">Tell them what you think represents them best!</p>
       </div>
 
-      <div className="max-w-2xl mx-auto p-4 space-y-6 mt-8">
+      <div className="flex-1 container max-w-2xl mx-auto p-4 space-y-6 mt-6 pb-24">
+        {/* Voting as info */}
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800"
+          className="bg-card/80 backdrop-blur-sm border border-primary/30 rounded-lg p-4"
         >
-          <p className="text-sm">
+          <p className="text-sm text-foreground/80">
             <strong>Voting as:</strong> {currentUser.email}
           </p>
         </motion.div>
 
+        {/* Category forms */}
         {categories.map((category, index) => (
           <motion.div 
             key={category.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100"
+            className="bg-card/80 backdrop-blur-sm rounded-xl border border-border overflow-hidden"
           >
-            <div className="bg-gradient-to-r from-christmas-green/10 to-transparent p-4 border-b border-christmas-green/20">
-              <h2 className="text-xl font-bold text-christmas-green flex items-center">
-                <span className="bg-christmas-green text-white w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">
+            <div className="bg-primary/10 p-4 border-b border-primary/20">
+              <h2 className="text-xl font-bold text-primary flex items-center">
+                <span className="bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">
                   {index + 1}
                 </span>
                 {category.name}
               </h2>
-              <p className="text-gray-600 mt-1 ml-11 text-sm">{category.description}</p>
+              <p className="text-muted-foreground mt-1 ml-11 text-sm">{category.description}</p>
             </div>
 
             <div className="p-5">
-              <label className="block text-gray-700 font-medium mb-2">
+              <label className="block text-foreground font-medium mb-2">
                 {category.prompt}
               </label>
               <div className="relative">
                 <textarea
-                  className="w-full border border-gray-300 rounded-lg p-4 pr-16 focus:ring-2 focus:ring-christmas-green focus:border-transparent resize-none transition-shadow"
+                  className="w-full bg-input border border-border rounded-lg p-4 pr-16 focus:ring-2 focus:ring-primary focus:border-transparent resize-none transition-shadow text-foreground placeholder:text-muted-foreground"
                   placeholder={category.code === 'personal_note' 
                     ? "Write your heartfelt message here..." 
-                    : `Write your answer for ${calendarOwner.name}...`}
+                    : `Write your answer for ${calendarOwner?.name}...`}
                   maxLength={500}
                   rows={category.code === 'personal_note' ? 5 : 3}
                   value={answers[category.id] || ''}
                   onChange={(e) => handleAnswerChange(category.id, e.target.value)}
                 />
-                <div className="absolute bottom-3 right-3 text-xs text-gray-400">
+                <div className="absolute bottom-3 right-3 text-xs text-muted-foreground">
                   {(answers[category.id]?.length || 0)}/500
                 </div>
               </div>
@@ -320,6 +397,7 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
           </motion.div>
         ))}
 
+        {/* Submit button */}
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -329,7 +407,7 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="w-full bg-christmas-red text-white py-4 rounded-xl font-bold text-xl shadow-xl hover:bg-red-700 transition-all transform hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-3"
+            className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-bold text-xl shadow-xl hover:bg-primary/90 transition-all transform hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-3"
           >
             {submitting ? (
               'Sending Votes...'
@@ -349,8 +427,8 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
 export default function VotePage({ params }: { params: { code: string } }) {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-xl text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center sparkle-bg">
+        <div className="text-2xl animate-pulse text-primary">Loading... 🎁</div>
       </div>
     }>
       <VotePageContent calendarCode={params.code} />

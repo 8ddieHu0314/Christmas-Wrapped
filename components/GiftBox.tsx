@@ -13,7 +13,8 @@ interface Category {
 
 interface Vote {
   answer: string;
-  voterName: string;
+  voteCount: number;
+  voters: string[];
 }
 
 interface GiftBoxProps {
@@ -150,8 +151,14 @@ export function GiftBox({ category, day, votes = [], isRevealed, testMode = fals
               {votes.length > 0 ? (
                 votes.map((vote, index) => (
                   <div key={index} className="bg-background/20 rounded p-2">
-                    <p className="text-foreground leading-tight">{vote.answer}</p>
-                    <p className="text-primary/70 mt-1 text-[10px]">— {vote.voterName}</p>
+                    <div className="flex justify-between items-start">
+                      <p className="text-foreground leading-tight capitalize font-medium">{vote.answer}</p>
+                      <span className="text-primary font-bold ml-2">{vote.voteCount}</span>
+                    </div>
+                    <p className="text-primary/70 mt-1 text-[10px]">
+                      {vote.voters.slice(0, 2).join(', ')}
+                      {vote.voters.length > 2 && ` +${vote.voters.length - 2}`}
+                    </p>
                   </div>
                 ))
               ) : (

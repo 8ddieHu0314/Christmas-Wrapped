@@ -1,13 +1,13 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { X, MessageCircle, User, Sparkles } from 'lucide-react';
+import { X, Trophy, Users, Sparkles } from 'lucide-react';
 
 interface Answer {
   id: string;
   answer: string;
-  voterName: string;
-  created_at: string;
+  voteCount: number;
+  voters: string[];
 }
 
 interface RevealModalProps {
@@ -20,7 +20,7 @@ interface RevealModalProps {
     };
     type: 'answers' | 'notes';
     answers: Answer[];
-    summary: string | null;
+    winner?: Answer;
     totalVotes: number;
   };
   onClose: () => void;
@@ -28,6 +28,12 @@ interface RevealModalProps {
 
 export default function RevealModal({ data, onClose }: RevealModalProps) {
   const isPersonalNotes = data.type === 'notes';
+
+  // Calculate percentage for vote bar
+  const getVotePercentage = (voteCount: number) => {
+    if (data.totalVotes === 0) return 0;
+    return (voteCount / data.totalVotes) * 100;
+  };
 
   return (
     <div 
@@ -39,56 +45,60 @@ export default function RevealModal({ data, onClose }: RevealModalProps) {
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.8, opacity: 0, y: 20 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-hidden relative"
+        className="bg-card rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-hidden relative border border-primary/30"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-christmas-red to-red-600 text-white p-6 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10">
+        <div className="bg-gradient-to-r from-primary/90 to-primary text-primary-foreground p-6 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-20">
             <div className="absolute top-2 left-4 text-6xl">✨</div>
-            <div className="absolute bottom-2 right-4 text-6xl">🎄</div>
+            <div className="absolute bottom-2 right-4 text-6xl">🎁</div>
           </div>
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 text-white/80 hover:text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+            className="absolute top-4 right-4 text-primary-foreground/80 hover:text-primary-foreground hover:bg-white/20 rounded-full p-1 transition-colors"
           >
             <X size={24} />
           </button>
           
           <div className="relative z-10">
-            <div className="flex items-center gap-2 text-white/80 text-sm mb-1">
+            <div className="flex items-center gap-2 text-primary-foreground/80 text-sm mb-1">
               <Sparkles size={16} />
               {data.category?.name || 'Category'}
             </div>
-            <h2 className="text-2xl md:text-3xl font-christmas font-bold">
+            <h2 className="text-2xl md:text-3xl font-display font-bold">
               {isPersonalNotes ? 'Heartfelt Messages' : 'Your Friends Say...'}
             </h2>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(85vh-180px)]">
-          {/* Summary Section */}
-          {data.summary && data.answers.length > 0 && (
+        <div className="p-6 overflow-y-auto max-h-[calc(85vh-180px)] bg-background">
+          {/* Winner Section */}
+          {data.winner && data.answers.length > 0 && !isPersonalNotes && (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-christmas-gold rounded-xl p-4 mb-6"
+              className="bg-gradient-to-r from-primary/20 to-primary/10 border-2 border-primary rounded-xl p-4 mb-6"
             >
-              <div className="flex items-center gap-2 text-amber-700 font-medium mb-1">
-                <MessageCircle size={18} />
-                Summary
+              <div className="flex items-center gap-2 text-primary font-medium mb-2">
+                <Trophy size={18} />
+                Top Answer
               </div>
-              <p className="text-gray-800 font-medium">{data.summary}</p>
+              <p className="text-2xl font-bold text-foreground capitalize">{data.winner.answer}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {data.winner.voteCount} {data.winner.voteCount === 1 ? 'vote' : 'votes'} from {data.winner.voters.join(', ')}
+              </p>
             </motion.div>
           )}
 
           {/* Answers List */}
           {data.answers.length > 0 ? (
             <div className="space-y-4">
-              <div className="text-sm text-gray-500 font-medium">
-                {data.totalVotes} {data.totalVotes === 1 ? 'friend' : 'friends'} voted
+              <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
+                <Users size={16} />
+                {data.totalVotes} {data.totalVotes === 1 ? 'vote' : 'votes'} total
               </div>
               
               {data.answers.map((answer, index) => (
@@ -97,23 +107,39 @@ export default function RevealModal({ data, onClose }: RevealModalProps) {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.1 + index * 0.1 }}
-                  className={`rounded-xl p-4 border ${
+                  className={`rounded-xl p-4 border relative overflow-hidden ${
                     isPersonalNotes 
-                      ? 'bg-gradient-to-r from-pink-50 to-red-50 border-pink-200' 
-                      : 'bg-gray-50 border-gray-200'
+                      ? 'bg-gradient-to-r from-pink-900/30 to-red-900/30 border-pink-500/30' 
+                      : 'bg-secondary/50 border-border'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      isPersonalNotes ? 'bg-pink-200 text-pink-700' : 'bg-christmas-green/20 text-christmas-green'
-                    }`}>
-                      <User size={16} />
+                  {/* Vote bar background */}
+                  {!isPersonalNotes && (
+                    <div 
+                      className="absolute inset-0 bg-primary/10 transition-all duration-500"
+                      style={{ width: `${getVotePercentage(answer.voteCount)}%` }}
+                    />
+                  )}
+                  
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-bold text-lg text-foreground capitalize">
+                        {isPersonalNotes ? `"${answer.answer}"` : answer.answer}
+                      </span>
+                      {!isPersonalNotes && (
+                        <span className="text-primary font-bold text-lg">
+                          {answer.voteCount}
+                        </span>
+                      )}
                     </div>
-                    <span className="font-medium text-gray-700">{answer.voterName}</span>
+                    <p className="text-sm text-muted-foreground">
+                      {answer.voters.length > 0 ? (
+                        <>From: {answer.voters.join(', ')}</>
+                      ) : (
+                        'Anonymous'
+                      )}
+                    </p>
                   </div>
-                  <p className={`text-gray-800 ${isPersonalNotes ? 'italic' : ''}`}>
-                    {isPersonalNotes ? `"${answer.answer}"` : answer.answer}
-                  </p>
                 </motion.div>
               ))}
             </div>
@@ -124,10 +150,10 @@ export default function RevealModal({ data, onClose }: RevealModalProps) {
               className="text-center py-12"
             >
               <div className="text-6xl mb-4">🎁</div>
-              <p className="text-gray-500 italic text-lg">
+              <p className="text-muted-foreground italic text-lg">
                 No votes received yet for this category.
               </p>
-              <p className="text-gray-400 text-sm mt-2">
+              <p className="text-muted-foreground/70 text-sm mt-2">
                 Invite more friends to vote!
               </p>
             </motion.div>
@@ -135,10 +161,10 @@ export default function RevealModal({ data, onClose }: RevealModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-100 p-4 bg-gray-50">
+        <div className="border-t border-border p-4 bg-secondary/30">
           <button
             onClick={onClose}
-            className="w-full bg-christmas-red text-white py-3 rounded-lg font-bold hover:bg-red-700 transition-colors"
+            className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-bold hover:bg-primary/90 transition-colors"
           >
             Close
           </button>

@@ -1,10 +1,17 @@
 import { createClient } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
+import { isVotingOpen } from '@/lib/date-utils';
+import { normalizeAnswer } from '@/lib/utils';
 
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
-    const { calendarOwnerId, answers, inviteToken } = await request.json();
+    const { calendarOwnerId, answers } = await request.json();
+
+    // Check if voting deadline has passed (same for everyone - Dec 15)
+    if (!isVotingOpen()) {
+      return NextResponse.json({ error: 'Voting deadline has passed (Dec 15)' }, { status: 400 });
+    }
 
     // Authenticate user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -17,36 +24,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'You cannot vote on your own calendar' }, { status: 400 });
     }
 
-    // Check if voting is still enabled for this calendar
+    // Verify calendar owner exists
     const { data: calendarOwner, error: ownerError } = await supabase
       .from('users')
-      .select('voting_enabled, voting_deadline')
+      .select('id')
       .eq('id', calendarOwnerId)
       .single();
 
     if (ownerError || !calendarOwner) {
       return NextResponse.json({ error: 'Calendar not found' }, { status: 404 });
-    }
-
-    if (!calendarOwner.voting_enabled) {
-      return NextResponse.json({ error: 'Voting has been closed for this calendar' }, { status: 400 });
-    }
-
-    // Check if past voting deadline
-    if (calendarOwner.voting_deadline && new Date() > new Date(calendarOwner.voting_deadline)) {
-      return NextResponse.json({ error: 'Voting deadline has passed' }, { status: 400 });
-    }
-
-    // Check for duplicate votes from this user for this calendar
-    const { data: existingVotes } = await supabase
-      .from('votes')
-      .select('id')
-      .eq('calendar_owner_id', calendarOwnerId)
-      .eq('voter_id', user.id)
-      .limit(1);
-
-    if (existingVotes && existingVotes.length > 0) {
-      return NextResponse.json({ error: 'You have already voted for this calendar!' }, { status: 400 });
     }
 
     // Validate answers
@@ -61,8 +47,10 @@ export async function POST(request: Request) {
 
     const validCategoryIds = new Set(categories?.map(c => c.id) || []);
 
-    // Build votes to insert
-    const votesToInsert = [];
+    // Submit each vote using the database function
+    const results = [];
+    const errors = [];
+
     for (const [categoryId, answer] of Object.entries(answers)) {
       const catId = parseInt(categoryId);
       
@@ -70,57 +58,112 @@ export async function POST(request: Request) {
         continue; // Skip invalid category IDs
       }
 
-      const trimmedAnswer = String(answer).trim();
-      if (!trimmedAnswer) {
+      // Normalize answer in TypeScript (lowercase, a-z and spaces only)
+      const normalizedAnswer = normalizeAnswer(String(answer));
+      if (!normalizedAnswer) {
         continue; // Skip empty answers
       }
 
-      votesToInsert.push({
-        calendar_owner_id: calendarOwnerId,
-        voter_id: user.id,
-        category_id: catId,
-        answer: trimmedAnswer.substring(0, 500), // Enforce max length
-      });
+      // Check if user already voted for this category
+      const { data: existingVote } = await supabase
+        .from('votes')
+        .select('id')
+        .eq('calendar_owner_id', calendarOwnerId)
+        .eq('voter_id', user.id)
+        .eq('category_id', catId)
+        .maybeSingle();
+
+      if (existingVote) {
+        errors.push({ category: catId, error: 'Already voted for this category' });
+        continue;
+      }
+
+      // Check if this answer already exists
+      const { data: existingAnswer } = await supabase
+        .from('category_answers')
+        .select('id, vote_count')
+        .eq('calendar_owner_id', calendarOwnerId)
+        .eq('category_id', catId)
+        .eq('answer', normalizedAnswer.substring(0, 500))
+        .maybeSingle();
+
+      let answerId: string;
+
+      if (existingAnswer) {
+        // Answer exists - increment vote count
+        await supabase
+          .from('category_answers')
+          .update({ 
+            vote_count: existingAnswer.vote_count + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingAnswer.id);
+        
+        answerId = existingAnswer.id;
+      } else {
+        // New answer - create with vote_count = 1
+        const { data: newAnswer, error: insertError } = await supabase
+          .from('category_answers')
+          .insert({
+            calendar_owner_id: calendarOwnerId,
+            category_id: catId,
+            answer: normalizedAnswer.substring(0, 500),
+            vote_count: 1,
+          })
+          .select('id')
+          .single();
+
+        if (insertError || !newAnswer) {
+          errors.push({ category: catId, error: 'Failed to save answer' });
+          continue;
+        }
+        answerId = newAnswer.id;
+      }
+
+      // Record the vote
+      const { error: voteError } = await supabase
+        .from('votes')
+        .insert({
+          calendar_owner_id: calendarOwnerId,
+          voter_id: user.id,
+          category_id: catId,
+          answer_id: answerId,
+        });
+
+      if (voteError) {
+        console.error(`Vote error for category ${catId}:`, voteError);
+        errors.push({ category: catId, error: voteError.message });
+      } else {
+        results.push({ answer: normalizedAnswer, category: catId });
+      }
     }
 
-    if (votesToInsert.length === 0) {
-      return NextResponse.json({ error: 'No valid answers to submit' }, { status: 400 });
+    if (results.length === 0 && errors.length > 0) {
+      return NextResponse.json({ 
+        error: errors[0]?.error || 'Failed to submit votes' 
+      }, { status: 400 });
     }
 
-    // Insert all votes
-    const { error: insertError } = await supabase.from('votes').insert(votesToInsert);
+    // Update invitation status to 'voted'
+    const { data: userData } = await supabase
+      .from('users')
+      .select('email')
+      .eq('id', user.id)
+      .single();
 
-    if (insertError) {
-      console.error('Vote insert error:', insertError);
-      return NextResponse.json({ error: 'Failed to save votes' }, { status: 500 });
-    }
-
-    // Update invitation status if invite token provided
-    if (inviteToken) {
+    if (userData?.email) {
       await supabase
         .from('invitations')
         .update({ status: 'voted', accepted_by: user.id })
-        .eq('invite_token', inviteToken);
-    } else {
-      // Try to find and update invitation by email
-      const { data: userData } = await supabase
-        .from('users')
-        .select('email')
-        .eq('id', user.id)
-        .single();
-
-      if (userData?.email) {
-        await supabase
-          .from('invitations')
-          .update({ status: 'voted', accepted_by: user.id })
-          .eq('email', userData.email)
-          .eq('sender_id', calendarOwnerId);
-      }
+        .eq('email', userData.email)
+        .eq('sender_id', calendarOwnerId);
     }
 
     return NextResponse.json({ 
       success: true,
-      message: `Successfully submitted ${votesToInsert.length} answers`
+      message: `Successfully submitted ${results.length} answers`,
+      submitted: results.length,
+      errors: errors.length > 0 ? errors : undefined
     });
 
   } catch (error) {
