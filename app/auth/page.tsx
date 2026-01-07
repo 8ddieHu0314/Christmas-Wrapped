@@ -11,7 +11,7 @@ import {
 
 export default function Auth() {
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
+  const redirectTo = searchParams.get('redirect') || '/calendar';
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden sparkle-bg">

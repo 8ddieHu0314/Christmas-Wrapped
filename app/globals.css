@@ -15,6 +15,10 @@
   --primary: 45 93% 58%;
   --primary-foreground: 152 32% 12%;
   
+  /* Secondary */
+  --secondary: 152 25% 20%;
+  --secondary-foreground: 45 29% 90%;
+  
   /* Muted */
   --muted: 152 20% 25%;
   --muted-foreground: 45 10% 65%;
@@ -30,6 +34,14 @@
   
   /* Sparkle color */
   --sparkle: 45 80% 70%;
+  
+  /* Gift box colors */
+  --gift-red: 0 70% 45%;
+  --gift-red-foreground: 0 0% 100%;
+  
+  /* Revealed box */
+  --revealed: 45 60% 25%;
+  --revealed-foreground: 45 29% 90%;
 }
 
 * {
@@ -91,6 +103,42 @@ body {
 
 .text-sparkle {
   color: hsl(var(--sparkle));
+}
+
+/* Gift box colors */
+.bg-gift-red {
+  background-color: hsl(var(--gift-red));
+}
+
+.text-gift-red-foreground {
+  color: hsl(var(--gift-red-foreground));
+}
+
+.bg-revealed {
+  background-color: hsl(var(--revealed));
+}
+
+.text-revealed-foreground {
+  color: hsl(var(--revealed-foreground));
+}
+
+/* Glow pulse animation */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px hsla(var(--primary), 0.5);
+  }
+  50% {
+    box-shadow: 0 0 25px hsla(var(--primary), 0.8);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* Secondary background */
+.bg-secondary {
+  background-color: hsl(var(--secondary));
 }
 
 /* Form input styling */

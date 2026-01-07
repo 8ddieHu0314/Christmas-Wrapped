@@ -11,7 +11,7 @@ interface AuthFormProps {
   redirectTo?: string;
 }
 
-export function AuthForm({ redirectTo = '/dashboard' }: AuthFormProps) {
+export function AuthForm({ redirectTo = '/calendar' }: AuthFormProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
