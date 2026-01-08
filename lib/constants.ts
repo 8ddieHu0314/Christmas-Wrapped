@@ -12,11 +12,11 @@ export const CATEGORIES: Category[] = [
   { id: 1, name: 'Animal', emoji: '🐾' },
   { id: 2, name: 'Place', emoji: '🌍' },
   { id: 3, name: 'Plant', emoji: '🌸' },
-  { id: 4, name: 'Character', emoji: '🎭' },
-  { id: 5, name: 'Season', emoji: '❄️' },
-  { id: 6, name: 'Hobby', emoji: '🎨' },
-  { id: 7, name: 'Food', emoji: '🍕' },
-  { id: 8, name: 'Colour', emoji: '🎨' },
+  { id: 4, name: 'Season', emoji: '❄️' },
+  { id: 5, name: 'Hobby', emoji: '🎨' },
+  { id: 6, name: 'Food', emoji: '🍕' },
+  { id: 7, name: 'Colour', emoji: '🎨' },
+  { id: 8, name: 'Character', emoji: '🎭' },
   { id: 9, name: 'Personal Note', emoji: '💌' },
 ];
 
