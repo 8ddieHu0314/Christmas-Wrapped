@@ -95,12 +95,12 @@ export function GiftBox({ category, day, votes = [], isRevealed, onReveal }: Gif
 
   // Flip card container
   return (
-    <div className="relative group" style={{ perspective: '1000px' }}>
+    <div 
+      className="relative group transition-transform duration-200 hover:scale-105" 
+      style={{ perspective: '1000px' }}
+    >
       <div 
-        className={cn(
-          "relative w-full aspect-square transition-transform duration-500 cursor-pointer",
-          "hover:scale-105"
-        )}
+        className="relative w-full aspect-square transition-transform duration-500 cursor-pointer"
         style={{ 
           transformStyle: 'preserve-3d',
           transform: showBack ? 'rotateY(180deg)' : 'rotateY(0deg)',
