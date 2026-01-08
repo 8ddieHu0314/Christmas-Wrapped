@@ -70,7 +70,7 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
    - 🎭 Fictional character twin
    - 💌 Personal note/message
 
-## 🧪 Development
+## Development
 
 ### Test Mode
 
@@ -80,6 +80,6 @@ In `lib/constants.ts`, set `TEST_MODE = true` to bypass date-based unlock restri
 export const TEST_MODE = true; // All boxes openable immediately
 ```
 
-## 📄 License
+## License
 
 This project is licensed under the terms in the [LICENSE](LICENSE) file.
