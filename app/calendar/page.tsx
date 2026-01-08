@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { createClient } from '@/lib/supabase';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users } from 'lucide-react';
 import { Sparkles } from '@/components/Sparkles';
@@ -28,8 +28,6 @@ function CalendarPageContent() {
   
   const supabase = createClient();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const testMode = searchParams.get('testMode') === 'true';
 
   useEffect(() => {
     async function loadData() {
@@ -80,7 +78,7 @@ function CalendarPageContent() {
       const response = await fetch('/api/reveal-day', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ day, testMode }),
+        body: JSON.stringify({ day }),
       });
       
       const data = await response.json();
@@ -111,7 +109,7 @@ function CalendarPageContent() {
         const response = await fetch('/api/reveal-day', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ day, testMode }),
+          body: JSON.stringify({ day }),
         });
         const data = await response.json();
         if (data.success) {
@@ -177,7 +175,6 @@ function CalendarPageContent() {
                 category={category}
                 day={category.id}
                 isRevealed={reveals.includes(category.id)}
-                testMode={testMode}
                 onReveal={() => handleBoxClick(category.id, reveals.includes(category.id))}
               />
             ))}

@@ -22,14 +22,13 @@ interface GiftBoxProps {
   day: number;
   votes?: Vote[];
   isRevealed: boolean;
-  testMode?: boolean;
   onReveal: () => void;
 }
 
-export function GiftBox({ category, day, votes = [], isRevealed, testMode = false, onReveal }: GiftBoxProps) {
+export function GiftBox({ category, day, votes = [], isRevealed, onReveal }: GiftBoxProps) {
   const [isFlipping, setIsFlipping] = useState(false);
   const [showBack, setShowBack] = useState(isRevealed);
-  const canUnlock = isDateUnlocked(day, testMode);
+  const canUnlock = isDateUnlocked(day);
   const unlockDate = getDayUnlockDate(day);
 
   // Sync showBack with isRevealed prop

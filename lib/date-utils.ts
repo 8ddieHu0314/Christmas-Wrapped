@@ -1,6 +1,8 @@
 // Advent calendar runs 9 days before Christmas (Dec 16-24)
 // Each day unlocks one category
 
+import { TEST_MODE } from './constants';
+
 export function getUnlockDates(year?: number): Record<number, string> {
   const targetYear = year || new Date().getFullYear();
   
@@ -19,8 +21,8 @@ export function getUnlockDates(year?: number): Record<number, string> {
 
 export const UNLOCK_DATES = getUnlockDates();
 
-export function isDateUnlocked(day: number, testMode: boolean = false): boolean {
-  if (testMode) return true;
+export function isDateUnlocked(day: number): boolean {
+  if (TEST_MODE) return true;
   
   const unlockDates = getUnlockDates();
   const unlockDateStr = unlockDates[day as keyof typeof unlockDates];

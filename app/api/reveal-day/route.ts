@@ -5,7 +5,7 @@ import { isDateUnlocked } from '@/lib/date-utils';
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
-    const { day, testMode } = await request.json();
+    const { day } = await request.json();
     
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     }
 
     // Verify date unlock
-    if (!isDateUnlocked(day, testMode)) {
+    if (!isDateUnlocked(day)) {
       return NextResponse.json({ error: 'This day is still locked!' }, { status: 403 });
     }
 

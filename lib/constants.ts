@@ -48,6 +48,17 @@ export const APP_CONFIG = {
 } as const;
 
 // =============================================
+// Development / Testing Flags
+// =============================================
+
+/**
+ * When set to true, all gift boxes can be revealed immediately
+ * without waiting for the date-based unlock countdown.
+ * Set to false for production use.
+ */
+export const TEST_MODE = true;
+
+// =============================================
 // UI Text/Labels
 // =============================================
 
