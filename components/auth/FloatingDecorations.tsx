@@ -8,8 +8,8 @@ export function FloatingDecorations() {
       {FLOATING_DECORATIONS.map((item, index) => (
         <div
           key={index}
-          className={`absolute ${item.position} text-3xl md:text-4xl animate-float select-none`}
-          style={{ animationDelay: item.delay }}
+          className="absolute text-3xl md:text-4xl animate-float select-none"
+          style={{ ...item.style, animationDelay: item.delay }}
         >
           {item.emoji}
         </div>

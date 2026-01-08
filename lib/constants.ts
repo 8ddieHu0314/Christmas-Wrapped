@@ -26,15 +26,15 @@ export const CATEGORIES: Category[] = [
 
 export interface DecorationItem {
   emoji: string;
-  position: string;
+  style: React.CSSProperties;
   delay: string;
 }
 
 export const FLOATING_DECORATIONS: DecorationItem[] = [
-  { emoji: '🎄', position: 'top-10 left-10', delay: '0s' },
-  { emoji: '⭐', position: 'top-20 right-20', delay: '0.5s' },
-  { emoji: '🎁', position: 'bottom-20 left-20', delay: '1s' },
-  { emoji: '❄️', position: 'bottom-10 right-10', delay: '1.5s' },
+  { emoji: '🎄', style: { top: '2.5rem', left: '2.5rem' }, delay: '0s' },
+  { emoji: '⭐', style: { top: '5rem', right: '5rem' }, delay: '0.5s' },
+  { emoji: '🎁', style: { bottom: '5rem', left: '5rem' }, delay: '1s' },
+  { emoji: '❄️', style: { bottom: '2.5rem', right: '2.5rem' }, delay: '1.5s' },
 ];
 
 // =============================================
