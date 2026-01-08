@@ -11,16 +11,17 @@ import GiftBox from '@/components/GiftBox';
 import RevealModal from '@/components/RevealModal';
 import confetti from 'canvas-confetti';
 import { CATEGORIES } from '@/lib/constants';
+import {
+  getCalendarCache,
+  setCalendarCache,
+  updateCacheReveals,
+  type CategoryData,
+  type Vote,
+} from '@/lib/calendar-cache';
 
 interface FriendStats {
   total: number
   voted: number;
-}
-
-interface Vote {
-  answer: string;
-  voteCount: number;
-  voters: string[];
 }
 
 function CalendarPageContent() {
@@ -29,9 +30,8 @@ function CalendarPageContent() {
   const [loading, setLoading] = useState(true);
   const [modalData, setModalData] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [revealingDay, setRevealingDay] = useState<number | null>(null);
   const [friendStats, setFriendStats] = useState<FriendStats>({ total: 0, voted: 0 });
-  const [votesMap, setVotesMap] = useState<Record<number, Vote[]>>({});
+  const [categoryDataMap, setCategoryDataMap] = useState<Record<number, CategoryData>>({});
   
   const supabase = createClient();
   const router = useRouter();
@@ -45,116 +45,157 @@ function CalendarPageContent() {
       }
       setUser(authUser);
 
+      // Check cache first - use cached data without refetching
+      const cached = getCalendarCache(authUser.id);
+      if (cached) {
+        setReveals(cached.reveals);
+        setCategoryDataMap(cached.categoryDataMap);
+        setFriendStats(cached.friendStats);
+        setLoading(false);
+        return;
+      }
+
+      // No cache - fetch ALL data upfront
+      await fetchAllData(authUser.id);
+      setLoading(false);
+    }
+
+    async function fetchAllData(userId: string) {
       // Fetch reveals
       const { data: revealsData } = await supabase
         .from('reveals')
         .select('category_id')
-        .eq('user_id', authUser.id);
+        .eq('user_id', userId);
       
-      if (revealsData) {
-        const revealedIds = revealsData.map(r => r.category_id);
-        setReveals(revealedIds);
+      const revealedIds = revealsData?.map(r => r.category_id) || [];
+      setReveals(revealedIds);
+
+      // Fetch ALL category answers for ALL categories (not just revealed ones)
+      const { data: allAnswers } = await supabase
+        .from('category_answers')
+        .select('id, category_id, answer, vote_count')
+        .eq('calendar_owner_id', userId)
+        .order('vote_count', { ascending: false });
+
+      // Fetch ALL votes with voter info
+      const answerIds = allAnswers?.map(a => a.id) || [];
+      const { data: allVotes } = answerIds.length > 0 
+        ? await supabase
+            .from('votes')
+            .select(`
+              answer_id,
+              voter_id,
+              users!votes_voter_id_fkey (name, email)
+            `)
+            .in('answer_id', answerIds)
+        : { data: [] };
+
+      // Build voters map: answer_id -> voter names
+      const votersMap: Record<string, string[]> = {};
+      allVotes?.forEach((vote: any) => {
+        const answerId = vote.answer_id;
+        const voterName = vote.users?.name || vote.users?.email?.split('@')[0] || 'Anonymous';
+        if (!votersMap[answerId]) votersMap[answerId] = [];
+        votersMap[answerId].push(voterName);
+      });
+
+      // Build category data map for all categories
+      const newCategoryDataMap: Record<number, CategoryData> = {};
+      
+      for (const category of CATEGORIES) {
+        const categoryAnswers = allAnswers?.filter(a => a.category_id === category.id) || [];
+        const answersWithVoters: Vote[] = categoryAnswers.map(a => ({
+          id: a.id,
+          answer: a.answer,
+          voteCount: a.vote_count,
+          voters: votersMap[a.id] || [],
+        }));
         
-        // Fetch votes for already-revealed days
-        const votesPromises = revealedIds.map(async (day) => {
-          try {
-            const response = await fetch('/api/reveal-day', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ day }),
-            });
-            const data = await response.json();
-            return { day, votes: data.success ? data.answers || [] : [] };
-          } catch {
-            return { day, votes: [] };
-          }
-        });
+        const totalVotes = answersWithVoters.reduce((sum, a) => sum + a.voteCount, 0);
+        const winner = answersWithVoters.length > 0 ? answersWithVoters[0] : undefined;
         
-        const votesResults = await Promise.all(votesPromises);
-        const initialVotesMap: Record<number, Vote[]> = {};
-        votesResults.forEach(({ day, votes }) => {
-          initialVotesMap[day] = votes;
-        });
-        setVotesMap(initialVotesMap);
+        newCategoryDataMap[category.id] = {
+          category: {
+            name: category.name,
+            description: '',
+            code: category.id === 9 ? 'personal_note' : category.name.toLowerCase(),
+          },
+          type: category.id === 9 ? 'notes' : 'answers',
+          answers: answersWithVoters,
+          winner,
+          totalVotes,
+        };
       }
+      
+      setCategoryDataMap(newCategoryDataMap);
 
       // Fetch friend voting stats
-      await fetchFriendStats();
+      const newFriendStats = await fetchFriendStatsData();
       
-      setLoading(false);
+      // Store in cache for subsequent navigation
+      setCalendarCache(userId, revealedIds, newCategoryDataMap, newFriendStats);
     }
+
     loadData();
   }, []);
 
-  async function fetchFriendStats() {
+  async function fetchFriendStatsData(): Promise<FriendStats> {
     try {
       const response = await fetch('/api/invite-friends');
       const data = await response.json();
       if (data.success && data.invitations) {
         const total = data.invitations.length;
         const voted = data.invitations.filter((i: any) => i.hasVoted).length;
-        setFriendStats({ total, voted });
+        const stats = { total, voted };
+        setFriendStats(stats);
+        return stats;
       }
     } catch (err) {
       console.error('Failed to fetch friend stats:', err);
     }
+    return { total: 0, voted: 0 };
   }
 
-  const handleReveal = async (day: number) => {
-    if (revealingDay !== null) return;
-    
-    setRevealingDay(day);
-    try {
-      const response = await fetch('/api/reveal-day', {
+  const handleBoxClick = (day: number, isRevealed: boolean) => {
+    const categoryData = categoryDataMap[day];
+    if (!categoryData) return;
+
+    // Show modal immediately from cached data
+    setModalData({
+      success: true,
+      ...categoryData,
+    });
+    setIsModalOpen(true);
+
+    if (!isRevealed) {
+      // Trigger confetti for new reveals
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+
+      // Update reveals state and cache
+      const newReveals = [...reveals, day];
+      setReveals(newReveals);
+      if (user) {
+        updateCacheReveals(user.id, newReveals);
+      }
+
+      // Fire-and-forget API call to record reveal in database
+      fetch('/api/reveal-day', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ day }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        // Trigger confetti
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
-
-        setReveals(prev => [...prev, day]);
-        setVotesMap(prev => ({ ...prev, [day]: data.answers || [] }));
-        setModalData(data);
-        setIsModalOpen(true);
-      }
-    } catch (error) {
-      console.error('Reveal error', error);
-    } finally {
-      setRevealingDay(null);
+      }).catch(err => console.error('Failed to record reveal:', err));
     }
   };
 
-  const handleBoxClick = async (day: number, isRevealed: boolean) => {
-    if (isRevealed) {
-      // Re-fetch and show modal
-      try {
-        const response = await fetch('/api/reveal-day', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ day }),
-        });
-        const data = await response.json();
-        if (data.success) {
-          setVotesMap(prev => ({ ...prev, [day]: data.answers || [] }));
-          setModalData(data);
-          setIsModalOpen(true);
-        }
-      } catch (error) {
-        console.error('Fetch error', error);
-      }
-    } else {
-      handleReveal(day);
-    }
-  };
+  // Build votesMap from categoryDataMap for GiftBox component
+  const votesMap: Record<number, Vote[]> = {};
+  Object.entries(categoryDataMap).forEach(([id, data]) => {
+    votesMap[Number(id)] = data.answers;
+  });
 
   if (loading) {
     return (
