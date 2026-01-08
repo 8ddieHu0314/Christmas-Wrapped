@@ -7,22 +7,15 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Gift, Check, Clock, ChevronRight } from 'lucide-react';
 import { Sparkles } from '@/components/Sparkles';
-
-interface Invitation {
-  id: string;
-  status: string;
-  created_at: string;
-  sender: {
-    id: string;
-    name: string;
-    email: string;
-    calendar_code: string;
-  };
-}
+import {
+  getVoteListCache,
+  setVoteListCache,
+  type VoteListInvitation,
+} from '@/lib/vote-cache';
 
 export default function VoteListPage() {
   const [loading, setLoading] = useState(true);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [invitations, setInvitations] = useState<VoteListInvitation[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const supabase = createClient();
   const router = useRouter();
@@ -39,7 +32,15 @@ export default function VoteListPage() {
       
       setCurrentUser(authUser);
 
-      // Get user's email
+      // Check cache first
+      const cached = getVoteListCache(authUser.id);
+      if (cached) {
+        setInvitations(cached.invitations);
+        setLoading(false);
+        return;
+      }
+
+      // No cache - fetch from database
       const { data: userData } = await supabase
         .from('users')
         .select('email')
@@ -70,6 +71,7 @@ export default function VoteListPage() {
       }
 
       // Fetch sender details for each invitation
+      let fetchedInvitations: VoteListInvitation[] = [];
       if (invites && invites.length > 0) {
         const senderIds = Array.from(new Set(invites.map(i => i.sender_id)));
         
@@ -80,16 +82,18 @@ export default function VoteListPage() {
 
         const senderMap = new Map(senders?.map(s => [s.id, s]) || []);
 
-        const invitationsWithSenders = invites
+        fetchedInvitations = invites
           .map(inv => ({
             ...inv,
             sender: senderMap.get(inv.sender_id)
           }))
-          .filter(inv => inv.sender && inv.sender.calendar_code) as Invitation[];
+          .filter(inv => inv.sender && inv.sender.calendar_code) as VoteListInvitation[];
 
-        setInvitations(invitationsWithSenders);
+        setInvitations(fetchedInvitations);
       }
 
+      // Store in cache
+      setVoteListCache(authUser.id, fetchedInvitations);
       setLoading(false);
     }
 
@@ -219,4 +223,3 @@ export default function VoteListPage() {
     </div>
   );
 }
-

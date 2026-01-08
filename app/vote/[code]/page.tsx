@@ -8,21 +8,19 @@ import Link from 'next/link';
 import { Send, LogIn, ArrowLeft } from 'lucide-react';
 import { Sparkles } from '@/components/Sparkles';
 import { isVotingOpen } from '@/lib/date-utils';
-
-interface Category {
-  id: number;
-  name: string;
-  code: string;
-  description: string;
-  prompt: string;
-  display_order: number;
-}
+import {
+  getVotePageCache,
+  setVotePageCache,
+  markVotePageAsVoted,
+  type Category,
+  type CalendarOwner,
+} from '@/lib/vote-cache';
 
 function VotePageContent({ calendarCode }: { calendarCode: string }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [calendarOwner, setCalendarOwner] = useState<any>(null);
+  const [calendarOwner, setCalendarOwner] = useState<CalendarOwner | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +48,7 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
           // Still load calendar owner for display
           const { data: owner } = await supabase
             .from('users')
-            .select('id, name')
+            .select('id, name, email, calendar_code')
             .eq('calendar_code', calendarCode)
             .single();
           setCalendarOwner(owner);
@@ -60,7 +58,22 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
         
         setCurrentUser(authUser);
 
-        // Get current user's email
+        // Check cache first
+        const cached = getVotePageCache(authUser.id, calendarCode);
+        if (cached) {
+          if (cached.error) {
+            setError(cached.error);
+          } else {
+            setCalendarOwner(cached.calendarOwner);
+            setCategories(cached.categories);
+            setHasAlreadyVoted(cached.hasAlreadyVoted);
+            setHasInvitation(cached.hasInvitation);
+          }
+          setLoading(false);
+          return;
+        }
+
+        // No cache - fetch from database
         const { data: currentUserData } = await supabase
           .from('users')
           .select('email')
@@ -75,19 +88,38 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
           .single();
 
         if (ownerError || !owner) {
-          setError('Calendar not found');
+          const errorMsg = 'Calendar not found';
+          setError(errorMsg);
+          setVotePageCache(authUser.id, calendarCode, {
+            calendarOwner: null as any,
+            categories: [],
+            hasAlreadyVoted: false,
+            hasInvitation: false,
+            error: errorMsg,
+          });
           setLoading(false);
           return;
         }
 
         // Prevent self-voting
         if (authUser.id === owner.id) {
-          setError('You cannot vote on your own calendar!');
+          const errorMsg = 'You cannot vote on your own calendar!';
+          setError(errorMsg);
+          setVotePageCache(authUser.id, calendarCode, {
+            calendarOwner: owner,
+            categories: [],
+            hasAlreadyVoted: false,
+            hasInvitation: false,
+            error: errorMsg,
+          });
           setLoading(false);
           return;
         }
 
         setCalendarOwner(owner);
+
+        let userHasInvitation = false;
+        let userHasAlreadyVoted = false;
 
         // Check if user has an invitation for this calendar
         if (currentUserData?.email) {
@@ -99,17 +131,34 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
             .single();
 
           if (invitation) {
+            userHasInvitation = true;
             setHasInvitation(true);
             
             // Check if already voted
             if (invitation.status === 'voted') {
+              userHasAlreadyVoted = true;
               setHasAlreadyVoted(true);
+              setVotePageCache(authUser.id, calendarCode, {
+                calendarOwner: owner,
+                categories: [],
+                hasAlreadyVoted: true,
+                hasInvitation: true,
+                error: null,
+              });
               setLoading(false);
               return;
             }
           } else {
             // No invitation - user cannot vote
-            setError('You need an invitation to vote on this calendar');
+            const errorMsg = 'You need an invitation to vote on this calendar';
+            setError(errorMsg);
+            setVotePageCache(authUser.id, calendarCode, {
+              calendarOwner: owner,
+              categories: [],
+              hasAlreadyVoted: false,
+              hasInvitation: false,
+              error: errorMsg,
+            });
             setLoading(false);
             return;
           }
@@ -124,7 +173,15 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
           .limit(1);
 
         if (existingVotes && existingVotes.length > 0) {
+          userHasAlreadyVoted = true;
           setHasAlreadyVoted(true);
+          setVotePageCache(authUser.id, calendarCode, {
+            calendarOwner: owner,
+            categories: [],
+            hasAlreadyVoted: true,
+            hasInvitation: userHasInvitation,
+            error: null,
+          });
           setLoading(false);
           return;
         }
@@ -137,6 +194,15 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
 
         if (catsError) throw catsError;
         setCategories(cats || []);
+
+        // Store in cache
+        setVotePageCache(authUser.id, calendarCode, {
+          calendarOwner: owner,
+          categories: cats || [],
+          hasAlreadyVoted: false,
+          hasInvitation: userHasInvitation,
+          error: null,
+        });
 
       } catch (err: any) {
         setError(err.message);
@@ -169,7 +235,7 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          calendarOwnerId: calendarOwner.id,
+          calendarOwnerId: calendarOwner?.id,
           answers,
         }),
       });
@@ -178,6 +244,11 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to submit votes');
+      }
+
+      // Update cache to mark as voted
+      if (currentUser?.id) {
+        markVotePageAsVoted(currentUser.id, calendarCode);
       }
 
       setSuccess(true);
