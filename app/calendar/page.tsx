@@ -10,22 +10,10 @@ import CountdownTimer from '@/components/CountdownTimer';
 import GiftBox from '@/components/GiftBox';
 import RevealModal from '@/components/RevealModal';
 import confetti from 'canvas-confetti';
-
-// Category data with emojis
-const CATEGORIES = [
-  { id: 1, name: 'Animal', emoji: '🐾' },
-  { id: 2, name: 'Place', emoji: '🌍' },
-  { id: 3, name: 'Plant', emoji: '🌸' },
-  { id: 4, name: 'Character', emoji: '🎭' },
-  { id: 5, name: 'Season', emoji: '❄️' },
-  { id: 6, name: 'Hobby', emoji: '🎨' },
-  { id: 7, name: 'Food', emoji: '🍕' },
-  { id: 8, name: 'Colour', emoji: '🎨' },
-  { id: 9, name: 'Personal Note', emoji: '💌' },
-];
+import { CATEGORIES } from '@/lib/constants';
 
 interface FriendStats {
-  total: number;
+  total: number
   voted: number;
 }
 
