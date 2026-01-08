@@ -17,6 +17,12 @@ interface FriendStats {
   voted: number;
 }
 
+interface Vote {
+  answer: string;
+  voteCount: number;
+  voters: string[];
+}
+
 function CalendarPageContent() {
   const [user, setUser] = useState<any>(null);
   const [reveals, setReveals] = useState<number[]>([]);
@@ -25,6 +31,7 @@ function CalendarPageContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [revealingDay, setRevealingDay] = useState<number | null>(null);
   const [friendStats, setFriendStats] = useState<FriendStats>({ total: 0, voted: 0 });
+  const [votesMap, setVotesMap] = useState<Record<number, Vote[]>>({});
   
   const supabase = createClient();
   const router = useRouter();
@@ -45,7 +52,30 @@ function CalendarPageContent() {
         .eq('user_id', authUser.id);
       
       if (revealsData) {
-        setReveals(revealsData.map(r => r.category_id));
+        const revealedIds = revealsData.map(r => r.category_id);
+        setReveals(revealedIds);
+        
+        // Fetch votes for already-revealed days
+        const votesPromises = revealedIds.map(async (day) => {
+          try {
+            const response = await fetch('/api/reveal-day', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ day }),
+            });
+            const data = await response.json();
+            return { day, votes: data.success ? data.answers || [] : [] };
+          } catch {
+            return { day, votes: [] };
+          }
+        });
+        
+        const votesResults = await Promise.all(votesPromises);
+        const initialVotesMap: Record<number, Vote[]> = {};
+        votesResults.forEach(({ day, votes }) => {
+          initialVotesMap[day] = votes;
+        });
+        setVotesMap(initialVotesMap);
       }
 
       // Fetch friend voting stats
@@ -92,6 +122,7 @@ function CalendarPageContent() {
         });
 
         setReveals(prev => [...prev, day]);
+        setVotesMap(prev => ({ ...prev, [day]: data.answers || [] }));
         setModalData(data);
         setIsModalOpen(true);
       }
@@ -113,6 +144,7 @@ function CalendarPageContent() {
         });
         const data = await response.json();
         if (data.success) {
+          setVotesMap(prev => ({ ...prev, [day]: data.answers || [] }));
           setModalData(data);
           setIsModalOpen(true);
         }
@@ -174,6 +206,7 @@ function CalendarPageContent() {
                 key={category.id}
                 category={category}
                 day={category.id}
+                votes={votesMap[category.id] || []}
                 isRevealed={reveals.includes(category.id)}
                 onReveal={() => handleBoxClick(category.id, reveals.includes(category.id))}
               />

@@ -37,7 +37,13 @@ export function GiftBox({ category, day, votes = [], isRevealed, onReveal }: Gif
   }, [isRevealed]);
 
   const handleClick = () => {
-    if (!canUnlock || isRevealed || isFlipping) return;
+    if (!canUnlock || isFlipping) return;
+    
+    // If already revealed, just trigger onReveal to show modal
+    if (isRevealed) {
+      onReveal();
+      return;
+    }
     
     setIsFlipping(true);
     
@@ -93,7 +99,7 @@ export function GiftBox({ category, day, votes = [], isRevealed, onReveal }: Gif
       <div 
         className={cn(
           "relative w-full aspect-square transition-transform duration-500 cursor-pointer",
-          !showBack && "hover:scale-105"
+          "hover:scale-105"
         )}
         style={{ 
           transformStyle: 'preserve-3d',
@@ -138,44 +144,34 @@ export function GiftBox({ category, day, votes = [], isRevealed, onReveal }: Gif
             transform: 'rotateY(180deg)',
           }}
         >
-          <div className="h-full flex flex-col">
+          <div className="h-full flex flex-col items-center justify-center text-center">
             {/* Header */}
-            <div className="text-center mb-2">
-              <span className="text-lg">{category.emoji}</span>
-              <h3 className="text-sm font-semibold text-primary">{category.name}</h3>
-            </div>
+            <span className="text-2xl mb-1">{category.emoji}</span>
+            <h3 className="text-xs font-semibold text-primary mb-2">{category.name}</h3>
             
-            {/* Votes */}
-            <div className="flex-1 overflow-y-auto space-y-2 text-xs">
-              {votes.length > 0 ? (
-                votes.map((vote, index) => (
-                  <div key={index} className="bg-background/20 rounded p-2">
-                    <div className="flex justify-between items-start">
-                      <p className="text-foreground leading-tight capitalize font-medium">{vote.answer}</p>
-                      <span className="text-primary font-bold ml-2">{vote.voteCount}</span>
-                    </div>
-                    <p className="text-primary/70 mt-1 text-[10px]">
-                      {vote.voters.slice(0, 2).join(', ')}
-                      {vote.voters.length > 2 && ` +${vote.voters.length - 2}`}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center text-muted-foreground">
-                  No votes yet
-                </div>
-              )}
-            </div>
+            {/* Top Answer Only */}
+            {votes.length > 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <p className="text-foreground text-lg md:text-xl font-bold capitalize leading-tight px-2">
+                  {votes[0].answer}
+                </p>
+                <p className="text-primary/70 text-[10px] mt-2">
+                  Tap for details
+                </p>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-muted-foreground text-xs">No votes yet</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
       
-      {/* Hover tooltip - only show when not revealed */}
-      {!showBack && (
-        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-card px-3 py-1 rounded text-xs text-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-border">
-          Click to open! ✨
-        </div>
-      )}
+      {/* Hover tooltip */}
+      <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-card px-3 py-1 rounded text-xs text-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-border">
+        {showBack ? 'Tap for details 👀' : 'Click to open! ✨'}
+      </div>
     </div>
   );
 }
