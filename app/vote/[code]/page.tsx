@@ -221,11 +221,19 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
     }));
   };
 
+  // Check if all answers are filled
+  const allAnswersFilled = categories.length > 0 && categories.every(c => answers[c.id]?.trim());
+
   const handleSubmit = async () => {
     const missingAnswers = categories.filter(c => !answers[c.id]?.trim());
     
     if (missingAnswers.length > 0) {
-      alert(`Please fill in: ${missingAnswers.map(c => c.name).join(', ')}`);
+      setError(`Please fill in all fields. Missing: ${missingAnswers.map(c => c.name).join(', ')}`);
+      // Scroll to first empty field
+      const firstMissing = missingAnswers[0];
+      const element = document.getElementById(`category-${firstMissing.id}`);
+      element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => setError(null), 5000);
       return;
     }
 
@@ -445,13 +453,17 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
               <p className="text-muted-foreground mt-1 ml-11 text-sm">{category.description}</p>
             </div>
 
-            <div className="p-5">
+            <div className="p-5" id={`category-${category.id}`}>
               <label className="block text-foreground font-medium mb-2">
-                {category.prompt}
+                {category.prompt} <span className="text-red-400">*</span>
               </label>
               <div className="relative">
                 <textarea
-                  className="w-full bg-input border border-border rounded-lg p-4 pr-16 focus:ring-2 focus:ring-primary focus:border-transparent resize-none transition-shadow text-foreground placeholder:text-muted-foreground"
+                  className={`w-full bg-input border rounded-lg p-4 pr-16 focus:ring-2 focus:ring-primary focus:border-transparent resize-none transition-shadow text-foreground placeholder:text-muted-foreground ${
+                    answers[category.id]?.trim() 
+                      ? 'border-green-500/50' 
+                      : 'border-border'
+                  }`}
                   placeholder={category.code === 'personal_note' 
                     ? "Write your heartfelt message here..." 
                     : `Write your answer for ${calendarOwner?.name}...`}
@@ -459,11 +471,15 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
                   rows={category.code === 'personal_note' ? 5 : 3}
                   value={answers[category.id] || ''}
                   onChange={(e) => handleAnswerChange(category.id, e.target.value)}
+                  required
                 />
                 <div className="absolute bottom-3 right-3 text-xs text-muted-foreground">
                   {(answers[category.id]?.length || 0)}/500
                 </div>
               </div>
+              {!answers[category.id]?.trim() && (
+                <p className="text-xs text-amber-400 mt-1">This field is required</p>
+              )}
             </div>
           </motion.div>
         ))}
@@ -477,11 +493,20 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
         >
           <button
             onClick={handleSubmit}
-            disabled={submitting}
-            className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-bold text-xl shadow-xl hover:bg-primary/90 transition-all transform hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-3"
+            disabled={submitting || !allAnswersFilled}
+            className={`w-full py-4 rounded-xl font-bold text-xl shadow-xl transition-all transform flex items-center justify-center gap-3 ${
+              allAnswersFilled 
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.02]' 
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
+            } disabled:opacity-70 disabled:scale-100`}
           >
             {submitting ? (
               'Sending Votes...'
+            ) : !allAnswersFilled ? (
+              <>
+                <Send size={24} />
+                Fill All Fields to Submit
+              </>
             ) : (
               <>
                 <Send size={24} />

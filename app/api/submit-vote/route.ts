@@ -45,9 +45,25 @@ export async function POST(request: Request) {
     // Fetch all categories to validate
     const { data: categories } = await supabaseAdmin
       .from('categories')
-      .select('id');
+      .select('id, name');
 
     const validCategoryIds = new Set(categories?.map(c => c.id) || []);
+    const categoryNames = new Map(categories?.map(c => [c.id, c.name]) || []);
+
+    // Validate all answers are provided and non-empty
+    const emptyAnswers: string[] = [];
+    for (const category of categories || []) {
+      const answer = answers[category.id];
+      if (!answer || !normalizeAnswer(String(answer))) {
+        emptyAnswers.push(category.name);
+      }
+    }
+
+    if (emptyAnswers.length > 0) {
+      return NextResponse.json({ 
+        error: `Please provide answers for: ${emptyAnswers.join(', ')}` 
+      }, { status: 400 });
+    }
 
     // Submit each vote using admin client
     const results = [];
@@ -63,7 +79,9 @@ export async function POST(request: Request) {
       // Normalize answer in TypeScript (lowercase, a-z and spaces only)
       const normalizedAnswer = normalizeAnswer(String(answer));
       if (!normalizedAnswer) {
-        continue; // Skip empty answers
+        // This shouldn't happen due to validation above, but just in case
+        errors.push({ category: catId, error: 'Answer cannot be empty' });
+        continue;
       }
 
       // Check if user already voted for this category
