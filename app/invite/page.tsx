@@ -5,18 +5,15 @@ import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Mail, Copy, Check, Trash2, UserCheck, Clock, Send, Gift, ArrowLeft } from 'lucide-react';
+import { Mail, Copy, Check, UserCheck, Clock, Send, Gift, ArrowLeft } from 'lucide-react';
 import { Sparkles } from '@/components/Sparkles';
-
-interface Invitation {
-  id: string;
-  email: string;
-  status: string;
-  invite_token: string;
-  created_at: string;
-  hasVoted: boolean;
-  calendar_code: string;
-}
+import {
+  getInviteCache,
+  setInviteCache,
+  updateCacheInvitations,
+  updateCacheCalendarCode,
+  type Invitation,
+} from '@/lib/invite-cache';
 
 export default function InvitePage() {
   const [user, setUser] = useState<any>(null);
@@ -39,7 +36,17 @@ export default function InvitePage() {
         return;
       }
 
-      // Fetch user data including calendar_code
+      // Check cache first - use cached data without refetching
+      const cached = getInviteCache(authUser.id);
+      if (cached) {
+        setUser(cached.userData);
+        setCalendarCode(cached.userData.calendar_code);
+        setInvitations(cached.invitations);
+        setLoading(false);
+        return;
+      }
+
+      // No cache - fetch from database
       const { data: userData } = await supabase
         .from('users')
         .select('*')
@@ -50,9 +57,13 @@ export default function InvitePage() {
         setUser(userData);
         setCalendarCode(userData.calendar_code);
 
+        let fetchedInvitations: Invitation[] = [];
         if (userData.calendar_code) {
-          await fetchInvitations();
+          fetchedInvitations = await fetchInvitationsData();
         }
+
+        // Store in cache for subsequent navigation
+        setInviteCache(authUser.id, userData, fetchedInvitations);
       }
       
       setLoading(false);
@@ -61,16 +72,18 @@ export default function InvitePage() {
     loadData();
   }, []);
 
-  async function fetchInvitations() {
+  async function fetchInvitationsData(): Promise<Invitation[]> {
     try {
       const response = await fetch('/api/invite-friends');
       const data = await response.json();
       if (data.success) {
         setInvitations(data.invitations);
+        return data.invitations;
       }
     } catch (err) {
       console.error('Failed to fetch invitations:', err);
     }
+    return [];
   }
 
   async function handleGenerateCalendar() {
@@ -85,6 +98,10 @@ export default function InvitePage() {
 
       if (data.success && data.calendar_code) {
         setCalendarCode(data.calendar_code);
+        // Update cache with new calendar code
+        if (user?.id) {
+          updateCacheCalendarCode(user.id, data.calendar_code);
+        }
       }
     } catch (err) {
       console.error('Generate calendar error:', err);
@@ -116,27 +133,16 @@ export default function InvitePage() {
       }
 
       setNewEmails('');
-      await fetchInvitations();
+      
+      // Refresh invitations and update cache
+      const newInvitations = await fetchInvitationsData();
+      if (user?.id) {
+        updateCacheInvitations(user.id, newInvitations);
+      }
     } catch (err: any) {
       console.error('Invite error:', err);
     } finally {
       setInviteLoading(false);
-    }
-  }
-
-  async function handleDeleteInvitation(invitationId: string) {
-    try {
-      const response = await fetch('/api/invite-friends', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invitationId }),
-      });
-
-      if (response.ok) {
-        setInvitations(prev => prev.filter(i => i.id !== invitationId));
-      }
-    } catch (err) {
-      console.error('Delete failed:', err);
     }
   }
 
@@ -297,26 +303,17 @@ export default function InvitePage() {
                         <span className="font-medium text-foreground truncate">{invitation.email}</span>
                         {getStatusBadge(invitation)}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => copyInviteLink(invitation)}
-                          className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                          title="Copy invite link"
-                        >
-                          {copiedId === invitation.id ? (
-                            <Check size={18} className="text-green-400" />
-                          ) : (
-                            <Copy size={18} />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteInvitation(invitation.id)}
-                          className="p-2 text-muted-foreground hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors"
-                          title="Remove invitation"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => copyInviteLink(invitation)}
+                        className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                        title="Copy invite link"
+                      >
+                        {copiedId === invitation.id ? (
+                          <Check size={18} className="text-green-400" />
+                        ) : (
+                          <Copy size={18} />
+                        )}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -333,4 +330,3 @@ export default function InvitePage() {
     </div>
   );
 }
-
