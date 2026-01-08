@@ -67,8 +67,4 @@ export function updateCacheReveals(userId: string, reveals: number[]): void {
   }
 }
 
-export function clearCalendarCache(): void {
-  cache = null;
-}
-
 export type { Vote, CategoryData, FriendStats, CalendarCacheData };

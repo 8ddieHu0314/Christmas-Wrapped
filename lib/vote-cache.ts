@@ -47,15 +47,11 @@ export function updateVoteListInvitationStatus(userId: string, calendarCode: str
   }
 }
 
-export function clearVoteListCache(): void {
-  voteListCache = null;
-}
-
 // =============================================
 // Individual Vote Page Cache (/vote/[code])
 // =============================================
 
-interface Category {
+interface VotePageCategory {
   id: number;
   name: string;
   code: string;
@@ -73,7 +69,7 @@ interface CalendarOwner {
 
 interface VotePageCacheData {
   calendarOwner: CalendarOwner;
-  categories: Category[];
+  categories: VotePageCategory[];
   hasAlreadyVoted: boolean;
   hasInvitation: boolean;
   error: string | null;
@@ -113,9 +109,5 @@ export function markVotePageAsVoted(userId: string, calendarCode: string): void 
   updateVoteListInvitationStatus(userId, calendarCode, 'voted');
 }
 
-export function clearVotePageCache(): void {
-  votePageCache = null;
-}
-
-export type { VoteListInvitation, Category, CalendarOwner, VotePageCacheData };
+export type { VoteListInvitation, VotePageCategory, CalendarOwner, VotePageCacheData };
 

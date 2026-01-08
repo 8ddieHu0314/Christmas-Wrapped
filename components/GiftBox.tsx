@@ -4,18 +4,8 @@ import { useState, useEffect } from 'react';
 import { Gift, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isDateUnlocked, getDayUnlockDate } from '@/lib/date-utils';
-
-interface Category {
-  id: number;
-  name: string;
-  emoji: string;
-}
-
-interface Vote {
-  answer: string;
-  voteCount: number;
-  voters: string[];
-}
+import { type Category } from '@/lib/constants';
+import { type Vote } from '@/lib/calendar-cache';
 
 interface GiftBoxProps {
   category: Category;

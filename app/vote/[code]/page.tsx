@@ -12,7 +12,7 @@ import {
   getVotePageCache,
   setVotePageCache,
   markVotePageAsVoted,
-  type Category,
+  type VotePageCategory,
   type CalendarOwner,
 } from '@/lib/vote-cache';
 
@@ -21,7 +21,7 @@ function VotePageContent({ calendarCode }: { calendarCode: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [calendarOwner, setCalendarOwner] = useState<CalendarOwner | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<VotePageCategory[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);

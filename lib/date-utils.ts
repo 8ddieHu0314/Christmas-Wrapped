@@ -19,8 +19,6 @@ export function getUnlockDates(year?: number): Record<number, string> {
   };
 }
 
-export const UNLOCK_DATES = getUnlockDates();
-
 export function isDateUnlocked(day: number): boolean {
   if (TEST_MODE) return true;
   
@@ -68,34 +66,3 @@ export function getDayUnlockDate(day: number): Date | null {
   return new Date(dateStr + 'T00:00:00');
 }
 
-export function getNextUnlockDay(): number | null {
-  const now = new Date();
-  
-  for (let day = 1; day <= 9; day++) {
-    const unlockDate = getDayUnlockDate(day);
-    if (unlockDate && now < unlockDate) {
-      return day;
-    }
-  }
-  
-  return null; // All days unlocked
-}
-
-export function formatCountdown(targetDate: Date): string {
-  const now = new Date();
-  const diff = targetDate.getTime() - now.getTime();
-  
-  if (diff <= 0) return 'Now!';
-  
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  
-  if (days > 0) {
-    return `${days}d ${hours}h`;
-  } else if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  } else {
-    return `${minutes}m`;
-  }
-}

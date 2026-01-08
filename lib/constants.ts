@@ -38,16 +38,6 @@ export const FLOATING_DECORATIONS: DecorationItem[] = [
 ];
 
 // =============================================
-// App Configuration
-// =============================================
-
-export const APP_CONFIG = {
-  name: 'Friend Gifts',
-  maxAnswerLength: 500,
-  sparkleCount: 25,
-} as const;
-
-// =============================================
 // Development / Testing Flags
 // =============================================
 
@@ -57,15 +47,4 @@ export const APP_CONFIG = {
  * Set to false for production use.
  */
 export const TEST_MODE = true;
-
-// =============================================
-// UI Text/Labels
-// =============================================
-
-export const MESSAGES = {
-  loading: 'Loading... 🎁',
-  loadingGifts: 'Loading your gifts... 🎁',
-  loadingInvitations: 'Loading invitations... 🎁',
-  footer: '🎄 Made with love for the holiday season 🎄',
-} as const;
 

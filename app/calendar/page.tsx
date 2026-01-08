@@ -17,12 +17,8 @@ import {
   updateCacheReveals,
   type CategoryData,
   type Vote,
+  type FriendStats,
 } from '@/lib/calendar-cache';
-
-interface FriendStats {
-  total: number
-  voted: number;
-}
 
 function CalendarPageContent() {
   const [user, setUser] = useState<any>(null);

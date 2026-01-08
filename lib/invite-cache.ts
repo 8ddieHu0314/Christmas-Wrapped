@@ -64,21 +64,5 @@ export function updateCacheCalendarCode(userId: string, calendarCode: string): v
   }
 }
 
-export function addCacheInvitation(userId: string, invitation: Invitation): void {
-  if (cache && cache.userId === userId) {
-    cache.invitations = [invitation, ...cache.invitations];
-  }
-}
-
-export function removeCacheInvitation(userId: string, invitationId: string): void {
-  if (cache && cache.userId === userId) {
-    cache.invitations = cache.invitations.filter(i => i.id !== invitationId);
-  }
-}
-
-export function clearInviteCache(): void {
-  cache = null;
-}
-
 export type { Invitation, UserData, InviteCacheData };
 
